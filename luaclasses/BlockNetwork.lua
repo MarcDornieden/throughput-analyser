@@ -10,7 +10,7 @@ function BlockNetwork.new()
 end
 
 function BlockNetwork:Scan(blockNetwork, currEntity)
-
+   
    local block = FindBlock(currEntity)
 
    if DEBUG then DebugPrint("Block: " .. #block.entities .. " entities, " .. #block.inputEntities .. " inputs, " .. #block.outputEntities .. " outputs") end
@@ -25,8 +25,7 @@ function BlockNetwork:Scan(blockNetwork, currEntity)
    return blockNetwork
 end
 
-function BlockNetwork.Label(self)
-   
+function BlockNetwork:Label()
    for i,block in ipairs(self.blocks) do
 	   -- for i,entity in ipairs(block.entities) do
 	   --    table.insert(overlayEntities, DrawOverlay(entity))

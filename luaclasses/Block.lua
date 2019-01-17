@@ -13,7 +13,7 @@ function Block.new(firstEntity)
    return self
 end
 
-function Block.Label(self)
+function Block:Label()
    
    for i,entity in ipairs(self.entities) do
       table.insert(overlayEntities, DrawOverlay(entity))
