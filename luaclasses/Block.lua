@@ -6,8 +6,6 @@ function Block.new(firstEntity)
    self.entities = {firstEntity}
    self.inputEntities = {}
    self.outputEntities = {}
-   self.inputNodes = {}
-   self.outputNodes = {}
    self.throughput = 0 --TODO get throughput from firstEntity
    self.type = firstEntity.type
    self.ID = self:UpdateID()
@@ -25,11 +23,11 @@ function Block:Label()
       table.insert(overlayEntities, DrawTextOverlay(entity, i))
    end
 
-   for i,entity in ipairs(self.inputEntities) do
+   for _,entity in ipairs(self.inputEntities) do
       table.insert(overlayEntities, DrawOverlay(entity, INPUT))
    end
 
-   for i,entity in ipairs(self.outputEntities) do
+   for _,entity in ipairs(self.outputEntities) do
       table.insert(overlayEntities, DrawOverlay(entity, OUTPUT))
    end
 end

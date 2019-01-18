@@ -6,74 +6,100 @@ BlockNetwork.__index = BlockNetwork
 function BlockNetwork.new()
    local self = setmetatable({}, BlockNetwork)
    self.graph = Graph.new()
-   self.entityPos2blockIDTable = {}    -- for e.pos = [x=1, y=5] would be: 100005 = 100013
+   self.entityID2blockIDTable = {}
    return self
 end
 
 function BlockNetwork:Scan(startEntity)
 
+   self:ScanNodes(startEntity)
+   self:ScanEdges()
+
+   local count = 0
+
+   for k,v in pairs(self.entityID2blockIDTable) do
+      count = count + 1
+   end
+
+   DebugPrint("BlockNetwork: " .. count .. " entities, " .. #self.graph.nodes .. " nodes, " .. self.graph:CountEdges() .. " edges")
+end
+
+function BlockNetwork:ScanNodes(startEntity)
+   
    local todo = {startEntity}
 
    while #todo > 0 do
       local currEntity = todo[1]
 
       local block = FindBlock(currEntity)
-      DebugPrint("Block: " .. #block.entities .. " entities, " .. #block.inputEntities .. " inputs, " .. #block.outputEntities .. " outputs")
 
-      local worked = self.graph:AddNode(block.ID, block)    -- TODO: Store them chronologically (along item-flow-direction)
+      local notThereYet = self.graph:AddNode(block.ID, block)    -- TODO: Store them chronologically (along item-flow-direction)
 
-      if not worked then
-         DebugPrint("Error: Block already in graph. ID = " .. block.ID)
-         return false
-      end
+      if notThereYet then
 
-      for _,entity in ipairs(block.entities) do
-
-         DebugAssert(self.entityPos2blockIDTable[Pos2ID(entity.position)] == nil)
-
-         self.entityPos2blockIDTable[Pos2ID(entity.position)] = block.ID
-      end
-      
-      for _,inputEntity in ipairs(block.inputEntities) do
-
-         if not self.entityPos2blockIDTable[Pos2ID(inputEntity.position)] then 
-            table.insert(todo, inputEntity)
+         for _,entity in ipairs(block.entities) do
+   
+            DebugAssert(self.entityID2blockIDTable[Pos2ID(entity.position)] == nil)
+   
+            self.entityID2blockIDTable[Pos2ID(entity.position)] = block.ID
+         end
+         
+         for _,inputEntity in ipairs(block.inputEntities) do
+   
+            if not self.entityID2blockIDTable[Pos2ID(inputEntity.position)] then 
+               table.insert(todo, inputEntity)
+            end
+         end
+         
+         for _,outputEntity in ipairs(block.outputEntities) do
+   
+            if not self.entityID2blockIDTable[Pos2ID(outputEntity.position)] then 
+               table.insert(todo, outputEntity)
+            end
          end
       end
       
-      for _,outputEntity in ipairs(block.outputEntities) do
-
-         if not self.entityPos2blockIDTable[Pos2ID(outputEntity.position)] then 
-            table.insert(todo, outputEntity)
-         end
-      end
       table.remove(todo, 1)
    end
-   
-   DebugPrint("BlockNetwork: " .. #self.graph.nodes .. " nodes, " .. #self.graph.edges .. " edges")
-   
-   return blockNetwork
+end
+
+function BlockNetwork:ScanEdges()
+
+   self.graph:ClearEdges()
+
+   for _,node in ipairs(self.graph.nodes) do
+      
+      for _,inputEntity in ipairs(node.obj.inputEntities) do
+         
+         local inputBlockID = self.entityID2blockIDTable[Pos2ID(inputEntity.position)]
+
+         if inputBlockID then
+            self.graph:AddEdge(inputBlockID, node.ID)
+         end
+      end
+      
+      for _,outputEntity in ipairs(node.obj.outputEntities) do
+         
+         local outputBlockID = self.entityID2blockIDTable[Pos2ID(outputEntity.position)]
+
+         if outputBlockID then
+            self.graph:AddEdge(node.ID, outputBlockID)
+         end
+      end
+   end
 end
 
 function BlockNetwork:Label()
    for _,node in ipairs(self.graph.nodes) do
-	   -- for i,entity in ipairs(block.entities) do
-	   --    table.insert(overlayEntities, DrawOverlay(entity))
-	   -- end
-
 	   node.obj:Label()
-
-   -- if self.inputNodes and #self.inputNodes > 0 then
-   --    for i,entity in ipairs(self.inputNodes) do
-   --       table.insert(overlayEntities, DrawOverlay(entity, "Input"))
-   --    end
-   -- end
-   -- if self.outputNodes and #self.outputNodes > 0 then
-   --    for i,entity in ipairs(self.outputNodes) do
-   --       table.insert(overlayEntities, DrawOverlay(entity, "Output"))
-   --    end
-   -- end
 	end
+end
+
+function BlockNetwork:ContainsEntity(entity)
+
+   local ID = Pos2ID(entity.position)
+
+   return self.entityID2blockIDTable[ID] ~= nil
 end
 
 return BlockNetwork

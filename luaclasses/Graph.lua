@@ -61,17 +61,23 @@ end
 function Graph:AddEdge(nodeIDA, nodeIDB)
 
     if self.edges[nodeIDA] then
-        if self.IsConnectedTo(nodeIDA, nodeIDB) then return false end
+        if self:IsConnectedTo(nodeIDA, nodeIDB) then return false end
 
         table.insert(self.edges[nodeIDA], nodeIDB)
     else
-        self.edges[nodeIDA] = {nodeIDB}
+        self.edges[nodeIDA] = { nodeIDB }
     end
 
     return true
 end
 
+function Graph:ClearNodes()
+    self.nodes = {}
+end
 
+function Graph:ClearEdges()
+    self.edges = {}
+end
 
 
 
@@ -95,13 +101,17 @@ function Graph:HasNode(nodeID)
 end
 
 function Graph:IsConnectedTo(nodeIDA, nodeIDB)
-    for _,node in ipairs(self.edges[nodeIDA]) do
-        if node.ID == nodeIDB then
-            return true
-        end
+    return isItemInList(nodeIDB, self.edges[nodeIDA])
+end
+
+function Graph:CountEdges()
+    local result = 0
+
+    for key,value in pairs(self.edges) do
+        result = result + #value
     end
 
-    return false
+    return result
 end
 
 return Graph

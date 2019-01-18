@@ -126,11 +126,11 @@ overlayEntities = {}
 script.on_event(defines.events.on_tick, function(event)
 
    if not clearedLogFile then
-      game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", "")
+      game.write_file("debug.log", "")
       clearedLogFile = true
    end
 
-   for index,player in pairs(game.connected_players) do
+   for _,player in pairs(game.connected_players) do
       if player.character and player.get_inventory(defines.inventory.player_armor).get_item_count("TA-Armor") >= 1 then
 
          p = player.position
@@ -143,7 +143,7 @@ script.on_event(defines.events.on_tick, function(event)
 
                for _,blockNetwork in ipairs(blockNetworks) do
 
-                  if isEntityInBlockNetwork(blockNetwork, entity) then return end
+                  if blockNetwork:ContainsEntity(entity) then return end
                end
 
                if isItemInList(entity.type, TYPESLIST) then
@@ -163,7 +163,7 @@ end)
 
 script.on_event(defines.events.on_player_pipette, function(event)
 
-   for i,entity in ipairs(overlayEntities) do
+   for _,entity in ipairs(overlayEntities) do
       entity.destroy()
    end
 
@@ -196,7 +196,7 @@ function FindBlock(startEntity)
 
       local inputEntities, outputEntities = getAdjacentInputsAndOutputs(currEntity)
 
-      for i,inputEntity in ipairs(inputEntities) do
+      for _,inputEntity in ipairs(inputEntities) do
          if TypesCompatible(inputEntity.type, block.type) then
             if isInBlock(block, inputEntity) == false then
                table.insert(block.entities, 1, inputEntity)
@@ -208,7 +208,7 @@ function FindBlock(startEntity)
          end
       end
 
-      for i,outputEntity in ipairs(outputEntities) do
+      for _,outputEntity in ipairs(outputEntities) do
          if TypesCompatible(outputEntity.type, block.type) then
             if isInBlock(block, outputEntity) == false then
                table.insert(block.entities, outputEntity)
@@ -221,6 +221,10 @@ function FindBlock(startEntity)
       end
 
       table.remove(todo, 1)
+   end
+
+   if cycles == 10000 then
+      game.print("Had to prevent infinite loop.")
    end
 
    block:UpdateID()
@@ -288,16 +292,16 @@ function isOutput(entityIn, entityOut, direction)   -- Assuming they're next to 
    local directionIn = entityIn.direction
    local directionOut = entityOut.direction
 
-   if typeIn == TYPES.BELT and typeOut == TYPES.BELT then
+   if     typeIn == TYPES.BELT     and typeOut == TYPES.BELT then
       return directionIn == direction and directionOut ~= OppositeDirection(directionIn)
 
-   elseif typeIn == TYPES.BELT and typeOut == TYPES.U_BELT then
+   elseif typeIn == TYPES.BELT     and typeOut == TYPES.U_BELT then
       return entityOut.belt_to_ground_type == "input" and directionIn == direction and directionOut ~= OppositeDirection(direction)
       
-   elseif typeIn == TYPES.U_BELT and typeOut == TYPES.BELT then
+   elseif typeIn == TYPES.U_BELT   and typeOut == TYPES.BELT then
       return entityIn.belt_to_ground_type == "output" and directionIn == direction and directionOut ~= OppositeDirection(direction)
 
-   elseif typeIn == TYPES.U_BELT and typeOut == TYPES.U_BELT then
+   elseif typeIn == TYPES.U_BELT   and typeOut == TYPES.U_BELT then
       if     entityIn.belt_to_ground_type == "input" then
          return entityOut.neighbours == entityIn
 
@@ -305,23 +309,23 @@ function isOutput(entityIn, entityOut, direction)   -- Assuming they're next to 
          return entityIn.direction == direction and entityOut.direction == direction
       end
       
-   elseif typeIn == TYPES.INSERTER and typeOut == TYPES.BELT or typeOut == TYPES.U_BELT then
+   elseif typeIn == TYPES.INSERTER and (typeOut == TYPES.BELT or typeOut == TYPES.U_BELT) then
       return isSameEntity(entityIn.drop_target, entityOut)
       
    elseif (typeIn == TYPES.BELT or typeIn == TYPES.U_BELT) and typeOut == TYPES.INSERTER then
       return isSameEntity(entityOut.pickup_target, entityIn)
 
-   elseif typeIn == TYPES.BELT and typeOut == TYPES.SPLITTER then
+   elseif typeIn == TYPES.BELT     and typeOut == TYPES.SPLITTER then
       return directionIn == direction and directionOut == direction
 
-   elseif typeIn == TYPES.U_BELT and typeOut == TYPES.SPLITTER then
+   elseif typeIn == TYPES.U_BELT   and typeOut == TYPES.SPLITTER then
       return entityIn.belt_to_ground_type == "output" and directionIn == direction and directionOut == direction
 
    elseif typeIn == TYPES.SPLITTER and typeOut == TYPES.BELT then
       return directionIn == direction and directionOut ~= OppositeDirection(direction)
 
    elseif typeIn == TYPES.SPLITTER and typeOut == TYPES.U_BELT then
-      return directionIn == direction and entityIn.belt_to_ground_type == "input" and directionOut ~= OppositeDirection(direction)
+      return directionIn == direction and entityOut.belt_to_ground_type == "input" and directionOut ~= OppositeDirection(direction)
 
    elseif typeIn == TYPES.SPLITTER and typeOut == TYPES.SPLITTER then
       return directionIn == direction and directionOut == direction
@@ -388,13 +392,6 @@ function GetDirectionStr(direction)
    return "North"
 end
 
-function isEntityInBlockNetwork(blockNetwork, entity)
-
-   local ID = Pos2ID(entity.position)
-
-   return blockNetwork.entityPos2blockIDTable[ID] ~= nil
-end
-
 function isInBlock(block, entity)
 
    return isEntityInList(block.entities, entity)
@@ -402,32 +399,9 @@ end
 
 function isEntityInList(list, searchEntity)
 
-   for i,listEntity in ipairs(list) do
+   for _,listEntity in ipairs(list) do
       if isSameEntity(searchEntity, listEntity) then
          return true
-      end
-   end
-
-   return false
-end
-
-function isEntityInNodeList(nodeList, searchEntity, inputOutput)
-   
-   for i,node in ipairs(nodeList) do
-
-      local connectionList
-
-      if inputOutput == INPUT then
-         connectionList = node.inputs
-      else
-         connectionList = node.outputs
-      end
-
-      for i,connection in ipairs(connectionList) do
-
-         if isSameEntity(searchEntity, connection.entity) then
-            return true
-         end
       end
    end
 
@@ -456,7 +430,7 @@ function getAdjacentEntities(originalEntity, direction)
       
       local searchResult = originalEntity.surface.find_entities_filtered{position=newPos}
 
-      for i,entity in ipairs(searchResult) do
+      for _,entity in ipairs(searchResult) do
          if isItemInList(entity.type, TYPESLIST) then
             table.insert(result, entity)
          end
@@ -535,7 +509,7 @@ end
 
 
 function isItemInList(item, list)
-   for i,listEntity in ipairs(list) do
+   for _,listEntity in ipairs(list) do
       if item == listEntity then
          return true
       end
@@ -556,22 +530,22 @@ end
 function DebugPrint(value)
    if not DEBUG then return end
 
-   if     type(value) == "table"   then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", dump(value) .. "\n", true)
-   elseif type(value) == "boolean" then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", (value == true and "true" or "false") .. "\n", true)
-   elseif value == nil             then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", "nil\n", true)
+   if     type(value) == "table"   then game.write_file("debug.log", dump(value) .. "\n", true)
+   elseif type(value) == "boolean" then game.write_file("debug.log", (value == true and "true" or "false") .. "\n", true)
+   elseif value == nil             then game.write_file("debug.log", "nil\n", true)
    else
-      game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", value .. "\n", true)
+      game.write_file("debug.log", value .. "\n", true)
    end
 end
 
 function DebugPrintWithName(variableName, value)
    if not DEBUG then return end
 
-   if     type(value) == "table"   then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = " .. dump(value) .. "\n", true)
-   elseif type(value) == "boolean" then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = " .. (value == true and "true" or "false") .. "\n", true)
-   elseif value == nil             then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = nil\n", true)
+   if     type(value) == "table"   then game.write_file("debug.log", variableName .. " = " .. dump(value) .. "\n", true)
+   elseif type(value) == "boolean" then game.write_file("debug.log", variableName .. " = " .. (value == true and "true" or "false") .. "\n", true)
+   elseif value == nil             then game.write_file("debug.log", variableName .. " = nil\n", true)
    else
-      game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = " .. value .. "\n", true)
+      game.write_file("debug.log", variableName .. " = " .. value .. "\n", true)
    end
 end
 
@@ -597,7 +571,7 @@ function dump(o, indent)
       indent = indent + 4
       for k,v in pairs(o) do
          if type(k) ~= 'number' then k = '"'..k..'"' end
-         s = s .. RepeatString(" ", indent) .. '['..k..'] = ' .. dump(v, indent) .. ',\n'
+         s = s .. RepeatString(" ", indent) ..k..' = ' .. dump(v, indent) .. ',\n'
       end
       indent = indent - 4
       return s .. RepeatString(" ", indent) .. '}'
