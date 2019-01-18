@@ -3,14 +3,13 @@
 --    # TODO-List                                                                  #
 --    ##############################################################################
 
-
-
--- Design a convenient BlockNetwork-Structure
-   -- Actually generate this convenient BlockNetwork-Structure
-   -- Test the shit out of it
-
 -- Find every necessary kind of block
-   -- underground-belts, splitters, long-armed inserter
+   -- Types to do:
+      -- underground-belts       CHECK
+      -- splitters               CHECK
+      -- furnaces
+      -- long handed inserters
+      -- assembling machines
    -- Test the shit out of it
 
 -- Find a good way of visualizing the BlockNetwork
@@ -36,6 +35,10 @@
 
 
 
+
+
+
+
 --    ##############################################################################
 --    # ALREADYDONE-List                                                           #
 --    ##############################################################################
@@ -47,6 +50,11 @@
 -- Find a good way of using the mod
    -- Make an item for the mod?
       -- Make the mod only be active when the item is held
+
+-- Design a convenient BlockNetwork-Structure
+   -- Actually generate this convenient BlockNetwork-Structure
+   -- Test the shit out of it
+
 
 
 
@@ -102,18 +110,9 @@ clearedLogFile = false
 blockNetworks = {}
 overlayEntities = {}
 
-entityBlockAssociation = {}
 
---[[
-   entityBlockAssociation = {
-      blockID = {
-         blockObj,
-         {
 
-         }
-      }
-   }
-]]
+
 
 
 
@@ -185,12 +184,12 @@ end)
 function FindBlock(startEntity)
    if startEntity == nil then return end
 
-   local todo = {startEntity}
    local block = Block.new(startEntity)
 
-   local cycles = 0 --TODO Temporary. To prevent infinite loops while coding
+   local todo = {startEntity}
+   local cycles = 0 -- failsave to prevent infinite loops. Probably not needed when everything is working
 
-   while #todo > 0 and cycles < 1000 do
+   while #todo > 0 and cycles < 10000 do
       cycles = cycles + 1
 
       currEntity = todo[1]
@@ -235,27 +234,37 @@ function getAdjacentInputsAndOutputs(originalEntity)
    inputs = {}
    outputs = {}
 
-   --TODO scan two block wide to notice long-armed inserters
-   --TODO make it work with other important entities, for example assembling machines (3x3 blocks)
-
    for _,currDirection in pairs(DIRECTIONS) do
 
-      local currEntity
+      local currEntities = {}
 
       if (originalEntity.type == TYPES.U_BELT) and
          ((originalEntity.belt_to_ground_type == "input"  and originalEntity.direction == currDirection) or
          (originalEntity.belt_to_ground_type == "output" and originalEntity.direction == OppositeDirection(currDirection))) then
-         currEntity = originalEntity.neighbours
+         currEntities = { originalEntity.neighbours }
+
       elseif not (originalEntity.type == TYPES.U_BELT and originalEntity.belt_to_ground_type == "output" and originalEntity.direction ~= currDirection) and 
              not (originalEntity.type == TYPES.U_BELT and originalEntity.belt_to_ground_type == "input"  and originalEntity.direction ~= OppositeDirection(currDirection)) then
-         currEntity = getAdjacentEntity(originalEntity, currDirection)
+         currEntities = getAdjacentEntities(originalEntity, currDirection)
       end
 
-      if currEntity then
-         if isOutput(originalEntity, currEntity, currDirection) then
-            table.insert(outputs, currEntity)
-         elseif isInput(currEntity, originalEntity, currDirection) then
-            table.insert(inputs, currEntity)
+      for _,currEntity in ipairs(currEntities) do
+
+         if currEntity then
+            if isOutput(originalEntity, currEntity, currDirection) then
+               if originalEntity.type == TYPES.SPLITTER then 
+                  table.insert(outputs, currEntity)
+               else
+                  table.insert(outputs, currEntity)
+               end
+
+            elseif isInput(currEntity, originalEntity, currDirection) then
+               if currEntity.type == TYPES.SPLITTER then
+                  table.insert(inputs, currEntity)
+               else
+                  table.insert(inputs, currEntity)
+               end
+            end
          end
       end
    end
@@ -267,37 +276,7 @@ end
 function isInput(entityIn, entityOut, direction)   -- Assuming they're next to each other!
    if not (entityIn or entityOut) then return false end
 
-   local typeIn = entityIn.type
-   local typeOut = entityOut.type
-
-   local directionIn = entityIn.direction
-   local directionOut = entityOut.direction
-
-   if     typeIn == TYPES.BELT and typeOut == TYPES.BELT then
-      return directionOut ~= direction and directionIn == OppositeDirection(direction)
-
-   elseif typeIn == TYPES.BELT and typeOut == TYPES.U_BELT then
-      return entityOut.belt_to_ground_type == "input" and directionIn == OppositeDirection(direction) and directionOut ~= direction
-
-   elseif typeIn == TYPES.U_BELT and typeOut == TYPES.BELT then
-      return entityIn.belt_to_ground_type == "output" and directionIn == OppositeDirection(direction) and directionOut ~= direction
-
-   elseif typeIn == TYPES.U_BELT and typeOut == TYPES.U_BELT then
-      if     entityOut.belt_to_ground_type == "output" then
-         return entityOut.neighbours == entityIn
-
-      elseif entityOut.belt_to_ground_type == "input" and entityIn.belt_to_ground_type == "output" then
-         return entityIn.direction == OppositeDirection(direction) and entityOut.direction == OppositeDirection(direction)
-      end
-      
-   elseif typeIn == TYPES.INSERTER and typeOut == TYPES.BELT or typeOut == TYPES.U_BELT then
-      return isSameEntity(entityIn.drop_target, entityOut)
-      
-   elseif (typeIn == TYPES.BELT or typeIn == TYPES.U_BELT) and typeOut == TYPES.INSERTER then
-      return isSameEntity(entityOut.pickup_target, entityIn)
-
-
-   end
+   return isOutput(entityIn, entityOut, OppositeDirection(direction))
 end
 
 function isOutput(entityIn, entityOut, direction)   -- Assuming they're next to each other!
@@ -332,6 +311,20 @@ function isOutput(entityIn, entityOut, direction)   -- Assuming they're next to 
    elseif (typeIn == TYPES.BELT or typeIn == TYPES.U_BELT) and typeOut == TYPES.INSERTER then
       return isSameEntity(entityOut.pickup_target, entityIn)
 
+   elseif typeIn == TYPES.BELT and typeOut == TYPES.SPLITTER then
+      return directionIn == direction and directionOut == direction
+
+   elseif typeIn == TYPES.U_BELT and typeOut == TYPES.SPLITTER then
+      return entityIn.belt_to_ground_type == "output" and directionIn == direction and directionOut == direction
+
+   elseif typeIn == TYPES.SPLITTER and typeOut == TYPES.BELT then
+      return directionIn == direction and directionOut ~= OppositeDirection(direction)
+
+   elseif typeIn == TYPES.SPLITTER and typeOut == TYPES.U_BELT then
+      return directionIn == direction and entityIn.belt_to_ground_type == "input" and directionOut ~= OppositeDirection(direction)
+
+   elseif typeIn == TYPES.SPLITTER and typeOut == TYPES.SPLITTER then
+      return directionIn == direction and directionOut == direction
 
    end
 end
@@ -453,18 +446,53 @@ function TypesCompatible(type1, type2)
    return false
 end
 
-function getAdjacentEntity(entity, direction)
+function getAdjacentEntities(originalEntity, direction)
 
-   local result = entity.surface.find_entities_filtered{position=PositionInDirection(entity.position, direction)}
+   local result = {}
 
-   for i,entity in ipairs(result) do
-      if isItemInList(entity.type, TYPESLIST) then
-         return entity
+   local newPositions = PositionsInDirection(originalEntity, direction)
+
+   for _,newPos in ipairs(newPositions) do
+      
+      local searchResult = originalEntity.surface.find_entities_filtered{position=newPos}
+
+      for i,entity in ipairs(searchResult) do
+         if isItemInList(entity.type, TYPESLIST) then
+            table.insert(result, entity)
+         end
       end
    end
 
-   return nil
+   return result
 end
+
+function PositionsInDirection(entity, direction, distance)
+   distance = distance or 1
+
+   if entity.type ~= TYPES.SPLITTER then
+      return { PositionInDirection(entity.position, direction, distance) }
+   end
+
+   local pos = entity.position
+
+   local originalPositions
+
+   if pos.x % 1 == 0 then 
+      return {
+         PositionInDirection({x = pos.x - 0.5, y = pos.y}, direction, distance),
+         PositionInDirection({x = pos.x + 0.5, y = pos.y}, direction, distance)
+      }
+   else
+      return {
+         PositionInDirection({x = pos.x, y = pos.y - 0.5}, direction, distance),
+         PositionInDirection({x = pos.x, y = pos.y + 0.5}, direction, distance)
+      }
+   end
+end
+
+
+
+
 
 
 
@@ -582,38 +610,3 @@ function RepeatString(s, n)
 
    return n > 0 and s .. RepeatString(s, n-1) or ""
 end
-
-
-
-
---    ##############################################################################
---    # old code                                                                   #
---    ##############################################################################
-
-
---[[
-function getBeltStats(entity)
-
-   total = entity.get_item_count()
-   left  = entity.get_transport_line(1).get_item_count()
-   right = entity.get_transport_line(2).get_item_count()
-
-   return total, left, right
-end
-
-function getSplitterStats(entity)
-
-   total = entity.get_item_count()
-
-   a = entity.get_transport_line(1).get_item_count()
-   b = entity.get_transport_line(2).get_item_count()
-   c = entity.get_transport_line(3).get_item_count()
-   d = entity.get_transport_line(4).get_item_count()
-   e = entity.get_transport_line(5).get_item_count()
-   f = entity.get_transport_line(6).get_item_count()
-   g = entity.get_transport_line(7).get_item_count()
-   h = entity.get_transport_line(8).get_item_count()
-
-   return total, {a, b, c, d, e, f, g, h}
-end
-]]-- 
