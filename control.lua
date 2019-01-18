@@ -62,9 +62,9 @@
 
 local DEBUG = true
 
+local Graph = require("luaclasses.Graph")
 local Block = require("luaclasses.Block")
 local BlockNetwork = require("luaclasses.BlockNetwork")
-local Node = require("luaclasses.Node")
 
 
 local DIRECTIONS = {
@@ -102,7 +102,18 @@ clearedLogFile = false
 blockNetworks = {}
 overlayEntities = {}
 
+entityBlockAssociation = {}
 
+--[[
+   entityBlockAssociation = {
+      blockID = {
+         blockObj,
+         {
+
+         }
+      }
+   }
+]]
 
 
 
@@ -116,7 +127,7 @@ overlayEntities = {}
 script.on_event(defines.events.on_tick, function(event)
 
    if not clearedLogFile then
-      game.write_file("debug.log", "")
+      game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", "")
       clearedLogFile = true
    end
 
@@ -127,17 +138,18 @@ script.on_event(defines.events.on_tick, function(event)
 
          local area = player.surface.find_entities_filtered{area={{p.x-1, p.y-1}, {p.x+1, p.y+1}}, type=TYPESLIST}
 
-         for i,entity in ipairs(area) do
+         for _,entity in ipairs(area) do
 
             if isItemInList(entity.type, TYPESLIST) then 
 
-               for i,blockNetwork in ipairs(blockNetworks) do
+               for _,blockNetwork in ipairs(blockNetworks) do
 
                   if isEntityInBlockNetwork(blockNetwork, entity) then return end
                end
 
                if isItemInList(entity.type, TYPESLIST) then
-                  local blockNetwork = FindBlockNetwork(entity)
+                  local blockNetwork = BlockNetwork.new()
+                  blockNetwork:Scan(entity)
                   blockNetwork:Label()
                   table.insert(blockNetworks, blockNetwork)
                end
@@ -169,46 +181,6 @@ end)
 --    ##############################################################################
 --    # functions to build blocks                                                  #
 --    ##############################################################################
-
-
-function FindBlockNetwork(startEntity)
-
-   local blockNetwork = BlockNetwork.new()
-
-   local todo = {startEntity}
-
-   while #todo > 0 do
-      local currEntity = todo[1]
-
-      local block = FindBlock(currEntity)
-
-      if DEBUG then DebugPrint("Block: " .. #block.entities .. " entities, " .. #block.inputEntities .. " inputs, " .. #block.outputEntities .. " outputs") end
-
-      table.insert(blockNetwork.blocks, block)
-      table.remove(todo, 1)
-   end
-
-   return blockNetwork
-end
-
-function FindBlockNetwork2(blockNetwork, currEntity)
-
-   -- local blockNetwork = BlockNetwork.new()
-
-   local block = FindBlock(currEntity)
-
-   if DEBUG then DebugPrint("Block: " .. #block.entities .. " entities, " .. #block.inputEntities .. " inputs, " .. #block.outputEntities .. " outputs") end
-
-   table.insert(blockNetwork.blocks, block)
-
-   for i=1,#block.outputEntities do
-      
-      FindBlockNetwork2(blockNetwork, block.outputEntities[i])
-   end
-
-   return blockNetwork
-end
-
 
 function FindBlock(startEntity)
    if startEntity == nil then return end
@@ -251,6 +223,8 @@ function FindBlock(startEntity)
 
       table.remove(todo, 1)
    end
+
+   block:UpdateID()
 
    return block
 end
@@ -423,11 +397,9 @@ end
 
 function isEntityInBlockNetwork(blockNetwork, entity)
 
-   for i,block in ipairs(blockNetwork.blocks) do
-      if isEntityInList(block.entities, entity) then return true end
-   end
+   local ID = Pos2ID(entity.position)
 
-   return false
+   return blockNetwork.entityPos2blockIDTable[ID] ~= nil
 end
 
 function isInBlock(block, entity)
@@ -549,27 +521,41 @@ function Pos2Str(pos)
    return "[" .. pos.x .. "/" .. pos.y .. "]"
 end
 
+function Pos2ID(pos)
+   return math.floor(pos.x) * 100000 + math.floor(pos.y)
+end
+
 function DebugPrint(value)
    if not DEBUG then return end
 
-   if     type(value) == "table"   then game.write_file("debug.log", dump(value) .. "\n", true)
-   elseif type(value) == "boolean" then game.write_file("debug.log", (value == true and "true" or "false") .. "\n", true)
+   if     type(value) == "table"   then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", dump(value) .. "\n", true)
+   elseif type(value) == "boolean" then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", (value == true and "true" or "false") .. "\n", true)
+   elseif value == nil             then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", "nil\n", true)
    else
-      game.write_file("debug.log", value .. "\n", true)
+      game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", value .. "\n", true)
    end
 end
 
 function DebugPrintWithName(variableName, value)
    if not DEBUG then return end
 
-   if     type(value) == "table"   then game.write_file("debug.log", variableName .. " = " .. dump(value) .. "\n", true)
-   elseif type(value) == "boolean" then game.write_file("debug.log", variableName .. " = " .. (value == true and "true" or "false") .. "\n", true)
+   if     type(value) == "table"   then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = " .. dump(value) .. "\n", true)
+   elseif type(value) == "boolean" then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = " .. (value == true and "true" or "false") .. "\n", true)
+   elseif value == nil             then game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = nil\n", true)
    else
-      game.write_file("debug.log", variableName .. " = " .. value .. "\n", true)
+      game.write_file("~/.factorio/mods/throughput-analyser_0.1.0/debug.log", variableName .. " = " .. value .. "\n", true)
    end
 end
 
+function DebugAssert(expression)
+   if not DEBUG then return end
 
+   if not expression then
+      game.print("Error: DebugAssert failed")
+   end
+
+   return expression
+end
 
 
 

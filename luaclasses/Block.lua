@@ -10,7 +10,12 @@ function Block.new(firstEntity)
    self.outputNodes = {}
    self.throughput = 0 --TODO get throughput from firstEntity
    self.type = firstEntity.type
+   self.ID = self:UpdateID()
    return self
+end
+
+function Block:UpdateID()
+   self.ID = Pos2ID(self.entities[1].position)
 end
 
 function Block:Label()

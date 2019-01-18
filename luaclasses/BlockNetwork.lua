@@ -1,37 +1,67 @@
+local Graph = require("luaclasses.Graph")
+
 local BlockNetwork = {}
 BlockNetwork.__index = BlockNetwork
 
 function BlockNetwork.new()
    local self = setmetatable({}, BlockNetwork)
-   self.blocks = {}
-   self.inputBlocks = {}
-   self.outputBlocks = {}
+   self.graph = Graph.new()
+   self.entityPos2blockIDTable = {}    -- for e.pos = [x=1, y=5] would be: 100005 = 100013
    return self
 end
 
-function BlockNetwork:Scan(blockNetwork, currEntity)
-   
-   local block = FindBlock(currEntity)
+function BlockNetwork:Scan(startEntity)
 
-   if DEBUG then DebugPrint("Block: " .. #block.entities .. " entities, " .. #block.inputEntities .. " inputs, " .. #block.outputEntities .. " outputs") end
+   local todo = {startEntity}
 
-   table.insert(blockNetwork.blocks, block)
+   while #todo > 0 do
+      local currEntity = todo[1]
 
-   for i=1,#block.outputEntities do
+      local block = FindBlock(currEntity)
+      DebugPrint("Block: " .. #block.entities .. " entities, " .. #block.inputEntities .. " inputs, " .. #block.outputEntities .. " outputs")
+
+      local worked = self.graph:AddNode(block.ID, block)    -- TODO: Store them chronologically (along item-flow-direction)
+
+      if not worked then
+         DebugPrint("Error: Block already in graph. ID = " .. block.ID)
+         return false
+      end
+
+      for _,entity in ipairs(block.entities) do
+
+         DebugAssert(self.entityPos2blockIDTable[Pos2ID(entity.position)] == nil)
+
+         self.entityPos2blockIDTable[Pos2ID(entity.position)] = block.ID
+      end
       
-      FindBlockNetwork2(blockNetwork, block.outputEntities[i])
-   end
+      for _,inputEntity in ipairs(block.inputEntities) do
 
+         if not self.entityPos2blockIDTable[Pos2ID(inputEntity.position)] then 
+            table.insert(todo, inputEntity)
+         end
+      end
+      
+      for _,outputEntity in ipairs(block.outputEntities) do
+
+         if not self.entityPos2blockIDTable[Pos2ID(outputEntity.position)] then 
+            table.insert(todo, outputEntity)
+         end
+      end
+      table.remove(todo, 1)
+   end
+   
+   DebugPrint("BlockNetwork: " .. #self.graph.nodes .. " nodes, " .. #self.graph.edges .. " edges")
+   
    return blockNetwork
 end
 
 function BlockNetwork:Label()
-   for i,block in ipairs(self.blocks) do
+   for _,node in ipairs(self.graph.nodes) do
 	   -- for i,entity in ipairs(block.entities) do
 	   --    table.insert(overlayEntities, DrawOverlay(entity))
 	   -- end
 
-	   block:Label()
+	   node.obj:Label()
 
    -- if self.inputNodes and #self.inputNodes > 0 then
    --    for i,entity in ipairs(self.inputNodes) do
