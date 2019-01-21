@@ -1,4 +1,5 @@
 local Graph = require("luaclasses.Graph")
+local Block = require("luaclasses.Block")
 
 local BlockNetwork = {}
 BlockNetwork.__index = BlockNetwork
@@ -31,11 +32,11 @@ function BlockNetwork:ScanNodes(startEntity)
    while #todo > 0 do
       local currEntity = todo[1]
 
-      local block = FindBlock(currEntity)
+      local block = Block.FromEntity(currEntity)
 
-      local notThereYet = self.graph:AddNode(block.ID, block)    -- TODO: Store them chronologically (along item-flow-direction)
+      local notAddedYet = self.graph:AddNode(block.ID, block)
 
-      if notThereYet then
+      if notAddedYet then
 
          for _,entity in ipairs(block.entities) do
    
@@ -89,9 +90,9 @@ function BlockNetwork:ScanEdges()
    end
 end
 
-function BlockNetwork:Label()
+function BlockNetwork:Label(visualizer)
    for _,node in ipairs(self.graph.nodes) do
-	   node.obj:Label()
+	   node.obj:Label(visualizer)
 	end
 end
 

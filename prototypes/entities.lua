@@ -5,11 +5,11 @@ TYPECOLORS = {
     {"Output", {r=1, a=.6}}
 }
 
-for i,TYPECOLOR in ipairs(TYPECOLORS) do
+for _,TYPECOLOR in ipairs(TYPECOLORS) do
     local TYPE  = TYPECOLOR[1] or ""
     local COLOR = TYPECOLOR[2]
 
-    for ii,DIRECTION in ipairs(DIRECTIONS) do
+    for _,DIRECTION in ipairs(DIRECTIONS) do
 
         data:extend(
         {
