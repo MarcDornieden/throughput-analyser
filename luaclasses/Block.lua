@@ -1,4 +1,4 @@
-local CONST = require("luaclasses.Constants")
+local CONST = require("constants")
 
 local Block = {}
 Block.__index = Block
@@ -34,6 +34,9 @@ function Block:UpdateThroughput()
    DebugAssert(self.throughput > 0)
 end
 
+function Block:Contains(entity)
+   return isEntityInList(self.entities, entity)
+end
 
 function Block:Scan()
 
@@ -43,32 +46,44 @@ function Block:Scan()
    while #todo > 0 and cycles < 10000 do
       cycles = cycles + 1
 
-      currEntity = todo[1][1]
-      ignorePos = todo[1][2]
+      local currEntity = todo[1][1]
+      local currEntityID = Pos2ID(currEntity.position)
+
+      local ignorePos = todo[1][2]
 
       local inputEntities, outputEntities = getAdjacentInputsAndOutputs(currEntity, ignorePos)
 
       for _,inputEntity in ipairs(inputEntities) do
          if TypesCompatible(inputEntity.type, self.type) then
-            if isInBlock(self, inputEntity) == false then
+            if self:Contains(inputEntity) == false then
                table.insert(self.entities, 1, inputEntity)
                table.insert(todo, {inputEntity, currEntity.position})
             end
 
          elseif not isEntityInList(self.inputEntities, inputEntity) then
-            table.insert(self.inputEntities, 1, inputEntity)    -- TODO: Store them chronologically (along item-flow-direction)
+
+            if self.inputEntities[currEntityID] == nil then
+               self.inputEntities[currEntityID] = {}
+            end
+
+            table.insert(self.inputEntities[currEntityID], inputEntity)
          end
       end
 
       for _,outputEntity in ipairs(outputEntities) do
          if TypesCompatible(outputEntity.type, self.type) then
-            if isInBlock(self, outputEntity) == false then
+            if self:Contains(outputEntity) == false then
                table.insert(self.entities, outputEntity)
                table.insert(todo, {outputEntity, currEntity.position})
             end
 
          elseif not isEntityInList(self.outputEntities, outputEntity) then
-            table.insert(self.outputEntities, 1, outputEntity)    -- TODO: Store them chronologically (along item-flow-direction)
+
+            if self.outputEntities[currEntityID] == nil then
+               self.outputEntities[currEntityID] = {}
+            end
+
+            table.insert(self.outputEntities[currEntityID], outputEntity)
          end
       end
 
@@ -84,6 +99,27 @@ function Block:Scan()
    return self
 end
 
+function Block:CalcSaturations()
+   for index,entity in ipairs(self.entities) do
+      
+      local entityID = Pos2ID(entity.position)
+
+      if self.outputEntities[entityID] then
+         
+         local entitySaturation = self.entities[index].saturation
+
+         for _,outputEntity in ipairs(self.outputEntities[entityID]) do
+            
+            --entitySaturation = entitySaturation - outputEntity.saturation
+         end
+
+         if entitySaturation < 0 then
+            game.print("Not enough items at " .. Pos2Str(entity.position))
+         end
+      end
+   end
+end
+
 function Block:Label(visualizer)
    
    for i,entity in ipairs(self.entities) do
@@ -91,13 +127,18 @@ function Block:Label(visualizer)
       visualizer:DrawTextOverlay(entity, i)
    end
 
-   for _,entity in ipairs(self.inputEntities) do
-      visualizer:DrawOverlay(entity, CONST.INPUT)
+   for entityID,inputEntities in pairs(self.inputEntities) do
+      for _,entity in ipairs(inputEntities) do
+         visualizer:DrawOverlay(entity, CONST.INPUT)
+      end
    end
 
-   for _,entity in ipairs(self.outputEntities) do
-      visualizer:DrawOverlay(entity, CONST.OUTPUT)
+   for entityID,outputEntities in pairs(self.outputEntities) do
+      for _,entity in ipairs(outputEntities) do
+         visualizer:DrawOverlay(entity, CONST.OUTPUT)
+      end
    end
+
 end
 
 return Block

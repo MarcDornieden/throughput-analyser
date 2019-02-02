@@ -1,3 +1,4 @@
+local CONST = require("constants")
 local Graph = require("luaclasses.Graph")
 local Block = require("luaclasses.Block")
 
@@ -18,7 +19,7 @@ function BlockNetwork:Scan(startEntity)
 
    local count = 0
 
-   for k,v in pairs(self.entityID2blockIDTable) do
+   for _,_ in pairs(self.entityID2blockIDTable) do
       count = count + 1
    end
 
@@ -45,17 +46,21 @@ function BlockNetwork:ScanNodes(startEntity)
             self.entityID2blockIDTable[Pos2ID(entity.position)] = block.ID
          end
          
-         for _,inputEntity in ipairs(block.inputEntities) do
+         for entityID,inputEntities in pairs(block.inputEntities) do
    
-            if not self.entityID2blockIDTable[Pos2ID(inputEntity.position)] then 
-               table.insert(todo, inputEntity)
+            for _,inputEntity in ipairs(inputEntities) do
+               if not self.entityID2blockIDTable[Pos2ID(inputEntity.position)] then 
+                  table.insert(todo, inputEntity)
+               end
             end
          end
          
-         for _,outputEntity in ipairs(block.outputEntities) do
-   
-            if not self.entityID2blockIDTable[Pos2ID(outputEntity.position)] then 
-               table.insert(todo, outputEntity)
+         for entityID,outputEntities in pairs(block.outputEntities) do
+
+            for _,outputEntity in ipairs(outputEntities) do
+               if not self.entityID2blockIDTable[Pos2ID(outputEntity.position)] then 
+                  table.insert(todo, outputEntity)
+               end
             end
          end
       end
@@ -70,21 +75,27 @@ function BlockNetwork:ScanEdges()
 
    for _,node in ipairs(self.graph.nodes) do
       
-      for _,inputEntity in ipairs(node.obj.inputEntities) do
-         
-         local inputBlockID = self.entityID2blockIDTable[Pos2ID(inputEntity.position)]
+      for entityID,inputEntities in pairs(node.obj.inputEntities) do
 
-         if inputBlockID then
-            self.graph:AddEdge(inputBlockID, node.ID)
+         for _,inputEntity in ipairs(inputEntities) do
+         
+            local inputBlockID = self.entityID2blockIDTable[Pos2ID(inputEntity.position)]
+   
+            if inputBlockID then
+               self.graph:AddEdge(inputBlockID, node.ID)
+            end
          end
       end
-      
-      for _,outputEntity in ipairs(node.obj.outputEntities) do
-         
-         local outputBlockID = self.entityID2blockIDTable[Pos2ID(outputEntity.position)]
 
-         if outputBlockID then
-            self.graph:AddEdge(node.ID, outputBlockID)
+      for entityID,outputEntities in pairs(node.obj.outputEntities) do
+         
+         for _,outputEntity in ipairs(outputEntities) do
+      
+            local outputBlockID = self.entityID2blockIDTable[Pos2ID(outputEntity.position)]
+   
+            if outputBlockID then
+               self.graph:AddEdge(node.ID, outputBlockID)
+            end
          end
       end
    end
@@ -93,7 +104,11 @@ end
 function BlockNetwork:Label(visualizer)
    for _,node in ipairs(self.graph.nodes) do
 	   node.obj:Label(visualizer)
-	end
+   end
+   
+   if CONST.DEBUG then
+      DebugPrintWithName("blockNetwork", self.graph)
+   end
 end
 
 function BlockNetwork:ContainsEntity(entity)

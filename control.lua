@@ -3,7 +3,7 @@
 --    # Requirements & variables                                                   #
 --    ##############################################################################
 
-local CONST = require("luaclasses.Constants")
+local CONST = require("constants")
 local Visualizer = require("luaclasses.Visualizer").new()
 
 local Graph = require("luaclasses.Graph")
@@ -49,9 +49,6 @@ script.on_event(defines.events.on_tick, function(event)
                   blockNetwork:Scan(entity)
                   blockNetwork:Label(Visualizer)
                   table.insert(blockNetworks, blockNetwork)
-               end
-               if entity.type == CONST.TYPES.SPLITTER then
-                  game.print("Dats a splitter")
                end
             end
          end
@@ -159,10 +156,10 @@ function isOutput(entityIn, entityOut, direction)   -- Assuming they're next to 
          return entityIn.direction == direction and entityOut.direction == direction
       end
       
-   elseif typeIn == CONST.TYPES.INSERTER and (typeOut == CONST.TYPES.BELT or typeOut == CONST.TYPES.U_BELT) then
+   elseif typeIn == CONST.TYPES.INSERTER and (typeOut == CONST.TYPES.BELT or typeOut == CONST.TYPES.U_BELT or typeOut == CONST.TYPES.CHEST) then
       return isSameEntity(entityIn.drop_target, entityOut)
       
-   elseif (typeIn == CONST.TYPES.BELT or typeIn == CONST.TYPES.U_BELT) and typeOut == CONST.TYPES.INSERTER then
+   elseif (typeIn == CONST.TYPES.BELT or typeIn == CONST.TYPES.U_BELT or typeIn == CONST.TYPES.CHEST) and typeOut == CONST.TYPES.INSERTER then
       return isSameEntity(entityOut.pickup_target, entityIn)
 
    elseif typeIn == CONST.TYPES.BELT     and typeOut == CONST.TYPES.SPLITTER then
@@ -209,11 +206,6 @@ function GetDirectionStr(direction)
    elseif direction == CONST.DIRECTIONS.SOUTH then return "South"
    elseif direction == CONST.DIRECTIONS.WEST  then return "West" end
    return "North"
-end
-
-function isInBlock(block, entity)
-
-   return isEntityInList(block.entities, entity)
 end
 
 function isEntityInList(list, searchEntity)
