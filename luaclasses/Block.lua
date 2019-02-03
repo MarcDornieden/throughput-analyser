@@ -1,5 +1,3 @@
-local CONST = require("constants")
-
 local Block = {}
 Block.__index = Block
 
@@ -24,18 +22,18 @@ function Block.FromEntity(firstEntity)
 end
 
 function Block:UpdateID()
-   self.ID = Pos2ID(self.entities[1].position)
+   self.ID = Helper:Pos2ID(self.entities[1].position)
 end
 
 function Block:UpdateThroughput()
 
    self.throughput = CONST.THROUGHPUT[self.entityName:gsub("-", "_")] or 0
    
-   DebugAssert(self.throughput > 0)
+   Helper:DebugAssert(self.throughput > 0)
 end
 
 function Block:Contains(entity)
-   return isEntityInList(self.entities, entity)
+   return entity:IsInList(self.entities)
 end
 
 function Block:Scan()
@@ -47,43 +45,42 @@ function Block:Scan()
       cycles = cycles + 1
 
       local currEntity = todo[1][1]
-      local currEntityID = Pos2ID(currEntity.position)
 
       local ignorePos = todo[1][2]
 
-      local inputEntities, outputEntities = getAdjacentInputsAndOutputs(currEntity, ignorePos)
+      local inputEntities, outputEntities = currEntity:GetAdjacentInputsAndOutputs(ignorePos)
 
       for _,inputEntity in ipairs(inputEntities) do
-         if TypesCompatible(inputEntity.type, self.type) then
+         if inputEntity:CompatibleWith(self.type) then
             if self:Contains(inputEntity) == false then
                table.insert(self.entities, 1, inputEntity)
                table.insert(todo, {inputEntity, currEntity.position})
             end
 
-         elseif not isEntityInList(self.inputEntities, inputEntity) then
+         elseif not inputEntity:IsInList(self.inputEntities[currEntity.ID]) then
 
-            if self.inputEntities[currEntityID] == nil then
-               self.inputEntities[currEntityID] = {}
+            if self.inputEntities[currEntity.ID] == nil then
+               self.inputEntities[currEntity.ID] = {}
             end
 
-            table.insert(self.inputEntities[currEntityID], inputEntity)
+            table.insert(self.inputEntities[currEntity.ID], inputEntity)
          end
       end
 
       for _,outputEntity in ipairs(outputEntities) do
-         if TypesCompatible(outputEntity.type, self.type) then
+         if outputEntity:CompatibleWith(self.type) then
             if self:Contains(outputEntity) == false then
                table.insert(self.entities, outputEntity)
                table.insert(todo, {outputEntity, currEntity.position})
             end
 
-         elseif not isEntityInList(self.outputEntities, outputEntity) then
+         elseif not outputEntity:IsInList(self.outputEntities[currEntity.ID]) then
 
-            if self.outputEntities[currEntityID] == nil then
-               self.outputEntities[currEntityID] = {}
+            if self.outputEntities[currEntity.ID] == nil then
+               self.outputEntities[currEntity.ID] = {}
             end
 
-            table.insert(self.outputEntities[currEntityID], outputEntity)
+            table.insert(self.outputEntities[currEntity.ID], outputEntity)
          end
       end
 
@@ -102,7 +99,7 @@ end
 function Block:CalcSaturations()
    for index,entity in ipairs(self.entities) do
       
-      local entityID = Pos2ID(entity.position)
+      local entityID = Helper:Pos2ID(entity.position)
 
       if self.outputEntities[entityID] then
          
@@ -114,7 +111,7 @@ function Block:CalcSaturations()
          end
 
          if entitySaturation < 0 then
-            game.print("Not enough items at " .. Pos2Str(entity.position))
+            game.print("Not enough items at " .. Helper:Pos2Str(entity.position))
          end
       end
    end

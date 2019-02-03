@@ -11,14 +11,11 @@ end
 function Visualizer:DrawOverlay(entity, inputOutput)
    inputOutput = inputOutput or ""
 
-   direction = GetDirection(entity)
-   directionStr = GetDirectionStr(direction)
-
-   local overlayEntity = game.surfaces[1].create_entity{
-      name = "TA-Arrow" .. directionStr .. inputOutput,
+   local overlayEntity = Entity.new(game.surfaces[1].create_entity{
+      name = "TA-Arrow" .. self:GetDirectionStr(entity.direction) .. inputOutput,
       position = entity.position,
       force = game.forces.player
-   }
+   })
 
    table.insert(self.overlayEntities, overlayEntity)
    return overlayEntity
@@ -26,13 +23,13 @@ end
 
 function Visualizer:DrawTextOverlay(entity, txt)
 
-   local overlayEntity = game.surfaces[1].create_entity{
+   local overlayEntity = Entity.new(game.surfaces[1].create_entity{
       name = "flying-text",
       position = entity.position,
       force = game.forces.player,
       text = txt
-   }
-   overlayEntity.active = false
+   })
+   overlayEntity.obj.active = false
 
    table.insert(self.overlayEntities, overlayEntity)
    return overlayEntity
@@ -40,8 +37,17 @@ end
 
 function Visualizer:Clear()
    for _,entity in ipairs(self.overlayEntities) do
-      entity.destroy()
+      entity.obj.destroy()
    end
+end
+
+
+
+function Visualizer:GetDirectionStr(direction)
+   if     direction == CONST.DIRECTIONS.EAST  then return "East"
+   elseif direction == CONST.DIRECTIONS.SOUTH then return "South"
+   elseif direction == CONST.DIRECTIONS.WEST  then return "West" end
+   return "North"
 end
 
 return Visualizer

@@ -101,7 +101,7 @@ function Graph:HasNode(nodeID)
 end
 
 function Graph:IsConnectedTo(nodeIDA, nodeIDB)
-    return isItemInList(nodeIDB, self.edges[nodeIDA])
+    return Helper:IsItemInList(nodeIDB, self.edges[nodeIDA])
 end
 
 function Graph:CountEdges()
